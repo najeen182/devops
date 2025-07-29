@@ -192,3 +192,171 @@ spec:
 ```bash
 kubectl get pods -l environment=production
 ```
+
+12. **Persistent Volumes (PVs) and Persistent Volumen Claims (Pvc)?**
+
+Persistent volume provids storage that persist beyon pod lifecycle.
+
+PV is a storage piece in the cluster that is provisoned by Cluster admin or dynamically provisioned using storage class
+
+PVC is a request for storabe by a user
+
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data"
+```
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+13. **Kubernetes networking and how does it work**
+
+Networking allows communication between services, pods and external clients. By default all pods can communicate with each other.
+
+**key networking concept**
+
+* pod-to-pod communication : each pod gets a unique IP assigned and can communicate within the cluster
+* service-to-pod communication : srvices provide a stable network endpoijnt for a group of pods, as pods are ephermal. each pod gets a new IP assigned every time it is created
+* ingress controllers: manage external HTTP/HTTPS traffic
+* Network policies : define rules to restrict or allow communication between pods
+
+## Network Policies
+
+Control traffic flow at the IP address or port level (OSI layer 3 or 4), network policies allow to specify rules for traffic flow within your cluster, and also between pods and the outside workd.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 172.17.0.0/16
+        except:
+        - 172.17.1.0/24
+    - namespaceSelector:
+        matchLabels:
+          project: myproject
+    - podSelector:
+        matchLabels:
+          role: frontend
+    ports:
+    - protocol: TCP
+      port: 6379
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.0.0.0/24
+    ports:
+    - protocol: TCP
+      port: 5978
+```
+
+14. **Role-based access control**
+
+Security mechanism that restrics users and servics based on their permissions. Consists of
+
+- Roles and ClusterRoles : define the actions allowed on Resources
+- RoleBindings and ClusterRoleBinding : assign roles to user or service accounts
+
+
+## ClusterRoleBinding Vs RoleBinding
+
+ClusterRoleBinding bind permission cluster-wide (user or user groups)
+RoleBinding bind permission to specific namespace
+
+**role**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
+```
+
+**rolebinding**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-reader-binding
+subjects:
+  - kind: User
+    name: dummy
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+**clusterrolebinding**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-access
+subjects:
+  - kind: User
+    name: "super-user"
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: "cluster-admin"
+  apiGroup: rbac.authorization.k8s.io
+```
+
+15. **how does autoscaling works**
+
+Two ways to autoscale in k8s
+
+1. **Horizontal Pod Autoscaler(HPA)** : adjusts the number of pods based on CPU usage, memory usage,or custom metrics
+2. **Vertical Podscaler (VPA)**: adjusts the cpu and memory requests for individual pods
+3. **Cluster Autoscaler**: Adjusts the number of worker nodes in the cluster based on resource needs
+
+```bash
+kubectl autoscale deployment nginx --cpu-percent=50 --min=1 --max=10
+```
+16. **debugging kubernetes pods**
+
+```bash
+kubectl logs <pod-name>
+kbuectl describe pod <pod-name>
+kubectl exec -it <pod-name> - /bin/sh
+kubectl get pods 
+```
